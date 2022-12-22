@@ -82,6 +82,8 @@ ads = ADS.ADS1115(i2c)
 
 adc_chan0 = AnalogIn(ads, ADS.P0)
 adc_chan1 = AnalogIn(ads, ADS.P1)
+adc_chan2 = AnalogIn(ads, ADS.P2)
+adc_chan3 = AnalogIn(ads, ADS.P3)
 ads.mode = Mode.CONTINUOUS
 
 dac = adafruit_mcp4728.MCP4728(i2c)
@@ -89,6 +91,8 @@ dac = adafruit_mcp4728.MCP4728(i2c)
 FULL_VREF_RAW_VALUE = 4095
 dac.channel_a.raw_value = 0
 dac.channel_b.raw_value = 0
+dac.channel_c.raw_value = 0
+dac.channel_d.raw_value = 0
 
 def map_volts(volt, vref, bits):
     n = simpleio.map_range(volt, 0, vref, 0, bits)
@@ -118,23 +122,36 @@ key_on0 = [0, 0, 0, 0, 0, 0,
 key_on1 = [0, 0, 0, 0, 0, 0,
           0, 0, 0, 0, 0, 0]
 volt = []
+
 active_volts0 = []
-active_keys0 = []
 active_volts1 = []
+active_volts2 = []
+active_volts3 = []
+
+active_keys0 = []
 active_keys1 = []
+active_keys2 = []
+active_keys3 = []
 
 for v in volts:
     volt.append(v['1vOct'])
 play0 = [0.000]
 play1 = [0.000]
+play2 = [0.000]
+play3 = [0.000]
 
 led_currents0 = [0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0]
 led_currents1 = [0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0]
+led_currents2 = [0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0]
+led_currents3 = [0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0]
 
-adc_channels = [adc_chan0, adc_chan1]
-dac_channels = [dac.channel_a.raw_value, dac.channel_b.raw_value]
+adc_channels = [adc_chan0, adc_chan1, adc_chan2, adc_chan3]
+dac_channels = [dac.channel_a.raw_value, dac.channel_b.raw_value, 
+                dac.channel_c.raw_value, dac.channel_d.raw_value]
 
 channel = 0
 
@@ -175,19 +192,25 @@ def channel_info(chan, quant, adc, keys, play):
     quant_area.text = str(quant)
     volt_area.text = str(adc.voltage)
     key_area.text = str(keys)
+    
+total_channels = 4
 
 while True:
     position = -encoder.position
     if position != last_position:
         if position > last_position:
-            channel = (channel + 1) % 2
+            channel = (channel + 1) % total_channels
         if position < last_position:
-            channel = (channel - 1) % 2
+            channel = (channel - 1) % total_channels
         for pin in range(12):
             if channel is 0:
                 aw.set_constant_current(pin, led_currents0[pin])
             if channel is 1:
                 aw.set_constant_current(pin, led_currents1[pin])
+            if channel is 2:
+                aw.set_constant_current(pin, led_currents2[pin])
+            if channel is 3:
+                aw.set_constant_current(pin, led_currents3[pin])
         last_position = position
     for s in range(12):
         if not buttons[s].value and states[s] is True:
@@ -195,23 +218,45 @@ while True:
                 led_channel_select(led_currents0, s)
             if channel is 1:
                 led_channel_select(led_currents1, s)
+            if channel is 2:
+                led_channel_select(led_currents2, s)
+            if channel is 3:
+                led_channel_select(led_currents3, s)
             states[s] = False
         if buttons[s].value and states[s] is False:
             if channel is 0:
                 set_notes(active_volts0, active_keys0, key_on0, play0, channel)
             if channel is 1:
                 set_notes(active_volts1, active_keys1, key_on1, play1, channel)
+            if channel is 2:
+                set_notes(active_volts2, active_keys2, key_on2, play2, channel)
+            if channel is 3:
+                set_notes(active_volts3, active_keys3, key_on3, play3, channel)
         if channel is 0:
             clear(play0)
         if channel is 1:
             clear(play1)
+        if channel is 2:
+            clear(play2)
+        if channel is 3:
+            clear(play3)
     quant0 = min(play0, key=lambda x: abs(x-adc_chan0.voltage))
     quant1 = min(play1, key=lambda x: abs(x-adc_chan1.voltage))
+    quant2 = min(play2, key=lambda x: abs(x-adc_chan2.voltage))
+    quant3 = min(play3, key=lambda x: abs(x-adc_chan3.voltage))
     pitch0 = map_volts(quant0, 5, 4095)
     pitch1 = map_volts(quant1, 5, 4095)
+    pitch2 = map_volts(quant2, 5, 4095)
+    pitch3 = map_volts(quant3, 5, 4095)
     dac.channel_a.raw_value = int(pitch0)
     dac.channel_b.raw_value = int(pitch1)
+    dac.channel_c.raw_value = int(pitch2)
+    dac.channel_d.raw_value = int(pitch3)
     if channel is 0:
         channel_info(channel, quant0, adc_chan0, active_keys0, play0)
     if channel is 1:
         channel_info(channel, quant1, adc_chan1, active_keys1, play1)
+    if channel is 2:
+        channel_info(channel, quant2, adc_chan2, active_keys2, play2)
+    if channel is 3:
+        channel_info(channel, quant3, adc_chan3, active_keys3, play3)
